@@ -8,6 +8,8 @@ on:
 jobs:
   rotate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -15,15 +17,21 @@ jobs:
       - name: Pick random logo
         id: picker
         run: |
+          # Safely find only image files (png, jpg, svg, gif) in the 'images' directory
           FILES=($(find images -type f \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.svg" -o -name "*.gif" \)))
+          
           if [ ${#FILES[@]} -eq 0 ]; then
             echo "Error: No image files found in the 'images' directory."
             exit 1
           fi
+          
           SELECTED_FILE=${FILES[$RANDOM % ${#FILES[@]}]}
+          
           echo "Selected file: $SELECTED_FILE"
+          
           mkdir -p docs
           cp "$SELECTED_FILE" docs/logo.png
+          
           echo "selected_file_name=$(basename $SELECTED_FILE)" >> $GITHUB_OUTPUT
 
       - name: Commit and push if changed
