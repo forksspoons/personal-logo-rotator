@@ -12,16 +12,21 @@ jobs:
   rotate:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Pick image and copy to docs/logo.png
+      - name: Sync with remote and select logo
         id: picker
-        shell: bash
         run: |
           set -euo pipefail
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
+          
           mkdir -p docs
           if [ ! -d images ] || [ -z "$(ls -A images 2>/dev/null)" ]; then
             echo "ERROR: images/ directory is empty or missing"; exit 1
@@ -31,24 +36,26 @@ jobs:
           if [ $count -eq 0 ]; then
             echo "No images found"; exit 1
           fi
-          slot=$(( $(date +%s) / (10*60) )) # Changed from (30*60) to (10*60)
+          slot=$(( $(date +%s) / (10*60) ))
           idx=$(( slot % count ))
           selected="images/${imgs[$idx]}"
           cp -- "$selected" docs/logo.png
           echo "selected_file=$(basename "$selected")" >> $GITHUB_OUTPUT
+          
+          git add docs/logo.png
 
-      - name: Commit & push if changed
+      - name: Commit and push if changed
         env:
-          GIT_AUTHOR_NAME: "github-actions[bot]"
-          GIT_AUTHOR_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com"
           SELECTED_FILE: ${{ steps.picker.outputs.selected_file }}
         run: |
-          git config user.name "$GIT_AUTHOR_NAME"
-          git config user.email "$GIT_AUTHOR_EMAIL"
-          git add docs/logo.png
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
           if git diff --cached --quiet; then
+            echo "No changes detected. Logo is the same."
             exit 0
           fi
+          
           git commit -m "Rotate logo: ${SELECTED_FILE}"
-          git pull --rebase origin main
           git push origin main
