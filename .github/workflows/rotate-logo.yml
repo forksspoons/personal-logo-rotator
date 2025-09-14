@@ -1,0 +1,62 @@
+name: Rotate logo (every 30 minutes)
+
+on:
+  schedule:
+    - cron: '*/30 * * * *' 
+  workflow_dispatch:       
+
+permissions:
+  contents: write
+
+jobs:
+  rotate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Pick image and copy to docs/logo.png
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p docs
+
+          # Ensure images exist
+          if [ ! -d images ] || [ -z "$(ls -A images 2>/dev/null)" ]; then
+            echo "ERROR: images/ directory is empty or missing"; exit 1
+          fi
+
+          # Stable sorted list of image filenames
+          mapfile -t imgs < <(ls -1 images | sort)
+          count=${#imgs[@]}
+          if [ $count -eq 0 ]; then
+            echo "No images found"; exit 1
+          fi
+
+          # Choose by 30-min slot (deterministic)
+          slot=$(( $(date +%s) / (30*60) ))
+          idx=$(( slot % count ))
+          selected="images/${imgs[$idx]}"
+
+          echo "Selected: $selected"
+          cp -- "$selected" docs/logo.png
+          ls -l docs/logo.png
+
+      - name: Commit & push if changed
+        env:
+          GIT_AUTHOR_NAME: "github-actions[bot]"
+          GIT_AUTHOR_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com"
+        run: |
+          git config user.name "$GIT_AUTHOR_NAME"
+          git config user.email "$GIT_AUTHOR_EMAIL"
+
+          git add docs/logo.png
+          if git diff --cached --quiet; then
+            echo "No change to docs/logo.png; nothing to commit."
+            exit 0
+          fi
+
+          git commit -m "Rotate logo: $(basename "$selected")"
+          git push
