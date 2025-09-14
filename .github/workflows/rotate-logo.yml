@@ -2,7 +2,7 @@ name: Rotate logo
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/30 * * * *"  # every 30 minutes
   workflow_dispatch:
 
 jobs:
@@ -10,30 +10,43 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: main
 
       - name: Pick random logo
         id: picker
         run: |
-          # Safely find only image files (png, jpg, svg, gif) in the 'images' directory
-          FILES=($(find images -type f \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.svg" -o -name "*.gif" \)))
-          
-          if [ ${#FILES[@]} -eq 0 ]; then
-            echo "Error: No image files found in the 'images' directory."
-            exit 1
-          fi
-          
+          FILES=($(ls images))
           SELECTED_FILE=${FILES[$RANDOM % ${#FILES[@]}]}
-          
-          echo "Selected file: $SELECTED_FILE"
-          
           mkdir -p docs
-          cp "$SELECTED_FILE" docs/logo.png
-          
-          echo "selected_file_name=$(basename $SELECTED_FILE)" >> $GITHUB_OUTPUT
+          cp "images/$SELECTED_FILE" docs/logo.png
+          echo "selected_file=$SELECTED_FILE" >> $GITHUB_OUTPUT
 
-      - name: Commit and push if changed
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "Rotate logo: ${{ steps.picker.outputs.selected_file_name }}"
-          file_pattern: docs/logo.png
+
+      - name: Commit & push if changed
+        env:
+          GIT_AUTHOR_NAME: "github-actions[bot]"
+          GIT_AUTHOR_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com"
+          SELECTED_FILE: ${{ steps.picker.outputs.selected_file }}
+        run: |
+          git config user.name "$GIT_AUTHOR_NAME"
+          git config user.email "$GIT_AUTHOR_EMAIL"
+
+          # fetch latest main first
+          git fetch origin main
+
+          # check if logo changed
+          git add docs/logo.png
+          if git diff --cached --quiet; then
+            echo "No change; skipping commit."
+            exit 0
+          fi
+
+          # rebase your commit on top of latest main
+          git commit -m "Rotate logo: ${SELECTED_FILE}"
+          git pull --rebase origin main
+
+          # push safely
+          git push origin HEAD:main
