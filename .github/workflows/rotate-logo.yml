@@ -15,14 +15,25 @@ jobs:
       - name: Pick random logo
         id: picker
         run: |
-          FILES=($(ls images))
+          # Safely find only image files (png, jpg, svg, gif) in the 'images' directory
+          FILES=($(find images -type f \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.svg" -o -name "*.gif" \)))
+          
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "Error: No image files found in the 'images' directory."
+            exit 1
+          fi
+          
           SELECTED_FILE=${FILES[$RANDOM % ${#FILES[@]}]}
+          
+          echo "Selected file: $SELECTED_FILE"
+          
           mkdir -p docs
-          cp "images/$SELECTED_FILE" docs/logo.png
-          echo "selected_file=$SELECTED_FILE" >> $GITHUB_OUTPUT
+          cp "$SELECTED_FILE" docs/logo.png
+          
+          echo "selected_file_name=$(basename $SELECTED_FILE)" >> $GITHUB_OUTPUT
 
       - name: Commit and push if changed
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Rotate logo: ${{ steps.picker.outputs.selected_file }}"
+          commit_message: "Rotate logo: ${{ steps.picker.outputs.selected_file_name }}"
           file_pattern: docs/logo.png
