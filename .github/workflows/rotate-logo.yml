@@ -2,8 +2,8 @@ name: Rotate logo (every 30 minutes)
 
 on:
   schedule:
-    - cron: '*/30 * * * *' 
-  workflow_dispatch:       
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -18,24 +18,25 @@ jobs:
           fetch-depth: 0
 
       - name: Pick image and copy to docs/logo.png
+        id: picker
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p docs
 
-          # Ensure images exist
+          
           if [ ! -d images ] || [ -z "$(ls -A images 2>/dev/null)" ]; then
             echo "ERROR: images/ directory is empty or missing"; exit 1
           fi
 
-          # Stable sorted list of image filenames
+          
           mapfile -t imgs < <(ls -1 images | sort)
           count=${#imgs[@]}
           if [ $count -eq 0 ]; then
             echo "No images found"; exit 1
           fi
 
-          # Choose by 30-min slot (deterministic)
+          
           slot=$(( $(date +%s) / (30*60) ))
           idx=$(( slot % count ))
           selected="images/${imgs[$idx]}"
@@ -43,6 +44,9 @@ jobs:
           echo "Selected: $selected"
           cp -- "$selected" docs/logo.png
           ls -l docs/logo.png
+
+          
+          echo "selected_file=$(basename "$selected")" >> $GITHUB_OUTPUT
 
       - name: Commit & push if changed
         env:
@@ -58,6 +62,6 @@ jobs:
             exit 0
           fi
 
-          git commit -m "Rotate logo: $(basename "$selected")"
+          git commit -m "Rotate logo: ${{ steps.picker.outputs.selected_file }}"
           git pull --rebase origin main
-          git push
+          git push origin main
