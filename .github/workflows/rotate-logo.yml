@@ -15,10 +15,10 @@ jobs:
       - name: Pick random logo
         id: picker
         run: |
-          FILES=($(ls logos))
+          FILES=($(ls images))
           SELECTED_FILE=${FILES[$RANDOM % ${#FILES[@]}]}
           mkdir -p docs
-          cp "logos/$SELECTED_FILE" docs/logo.png
+          cp "images/$SELECTED_FILE" docs/logo.png
           echo "selected_file=$SELECTED_FILE" >> $GITHUB_OUTPUT
 
       - name: Commit and push if changed
